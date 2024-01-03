@@ -78,7 +78,7 @@ public:
             char const pipe           = mMap.at(nextPoint.first).at(nextPoint.second);
             if (pipe == '|' || pipe == '7' || pipe == 'F')
             {
-                return findNextPoint(startingPoint, startDirection);
+                return findLoop(startingPoint, startDirection);
             }
         }
         // Check south
@@ -89,7 +89,7 @@ public:
             char const pipe           = mMap.at(nextPoint.first).at(nextPoint.second);
             if (pipe == '|' || pipe == 'J' || pipe == 'L')
             {
-                return findNextPoint(startingPoint, startDirection);
+                return findLoop(startingPoint, startDirection);
             }
         }
 
@@ -101,7 +101,7 @@ public:
             char const pipe           = mMap.at(nextPoint.first).at(nextPoint.second);
             if (pipe == '-' || pipe == 'F' || pipe == 'L')
             {
-                return findNextPoint(startingPoint, startDirection);
+                return findLoop(startingPoint, startDirection);
             }
         }
 
@@ -113,7 +113,7 @@ public:
             char const pipe           = mMap.at(nextPoint.first).at(nextPoint.second);
             if (pipe == '-' || pipe == 'J' || pipe == '7')
             {
-                return findNextPoint(startingPoint, startDirection);
+                return findLoop(startingPoint, startDirection);
             }
         }
         return 0;  // Starting point leads nowhere
@@ -124,33 +124,32 @@ public:
     // an edge of a map and count the number of times the ray crosses the edge of the polygon.
     size_t findAreaWithinLoop()
     {
-        Point  point{0, 0};
+        Point  point, begin, end;
         size_t area = 0;
-        for (auto const& row : mMap)
+        std::sort(mLoop.begin(), mLoop.end());
+        std::tie(begin, end) = getLoopRectangle();
+        for (auto row = begin.first; row < end.first; row++)
         {
-            for (auto const& column : row)
+            for (auto col = begin.second; col < end.second; col++)
             {
-                static_cast<void>(column);
+                point = {row, col};
                 if (!pointOnPolygon(point) && pointInPolygon(point))
                 {
                     area++;
                 }
-                point.second++;
             }
-            point.second = 0;
-            point.first++;
         }
         return area;
     }
 
 private:
-    bool pointOnPolygon(Point point)
+    bool pointOnPolygon(Point const& point)
     {
-        return std::find(mLoop.begin(), mLoop.end(), point) != mLoop.end();
+        return std::binary_search(mLoop.begin(), mLoop.end(), point);
     }
 
     // Algorithm for Jordan curve theorem taken from: https://wrfranklin.org/Research/Short_Notes/pnpoly.html
-    bool pointInPolygon(Point point)
+    bool pointInPolygon(Point const& point)
     {
         int  i, j, nvert = mVertices.size();
         bool c = false;
@@ -167,8 +166,37 @@ private:
         return c;
     }
 
+    // Get the area of the map where the loop is contained, no need to search outside of the loop
+    std::pair<Point, Point> getLoopRectangle()
+    {
+        Point maximum{0, 0};
+        Point minimum{mMap.size(), mMap.front().size()};
+
+        for (auto const& loopPoint : mLoop)
+        {
+            if (loopPoint.first < minimum.first)
+            {
+                minimum.first = loopPoint.first;
+            }
+            if (loopPoint.second < minimum.second)
+            {
+                minimum.second = loopPoint.second;
+            }
+            if (loopPoint.first > maximum.first)
+            {
+                maximum.first = loopPoint.first;
+            }
+            if (loopPoint.second > maximum.second)
+            {
+                maximum.second = loopPoint.second;
+            }
+        }
+
+        return {minimum, maximum};
+    }
+
 private:
-    size_t findNextPoint(Point currentPoint, Direction direction)
+    size_t findLoop(Point currentPoint, Direction direction)
     {
         // stop condition is reaching the starting point again
         size_t loopLength = 0;
@@ -253,6 +281,6 @@ int main()
     Solver solver(input.first);
     auto   loopLength = solver.findLoopLength(input.second);
     std::cout << "First part: " << loopLength / 2 << std::endl;
-    std::cout << "Second part:" << solver.findAreaWithinLoop() << std::endl;
+    std::cout << "Second part: " << solver.findAreaWithinLoop() << std::endl;
     return 0;
 }
